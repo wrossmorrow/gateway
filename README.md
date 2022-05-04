@@ -59,7 +59,7 @@ To have fun here, there are several "infrastructure" services used:
 
 `auth` (in `tests/mocks/auth/*`) is a bare-bones API key and token ([JWT](https://jwt.io/)) generation service. `envoy` has a JWT filter, but this is a reasonable use case and enables handling of HTTP Basic and HTTP Bearer auth in one place. 
 
-This is written in [`fastapi`](https://fastapi.tiangolo.com/) for a bit of diversity. 
+This is written in [`fastapi`](https://fastapi.tiangolo.com/) for a bit of diversity. Not entirely awful security practices are followed with keys, in that the secrets returned to users are never persisted by this service. 
 
 ### Gateway 
 
