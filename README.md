@@ -2,6 +2,12 @@
 
 This repo contains demo-style code for using [ExternalProcessors](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/ext_proc_filter) in [`envoy`](https://www.envoyproxy.io/docs/envoy/latest/), a high-performance production ready reverse proxy. Some other examples (not mine) in `golang` can be found [here](https://github.com/google/envoy-processor-examples)
 
+## Motivation
+
+This approach to customizing edge functionality is interesting mainly because it is a _relatively_ low-technical-bar approach yet integrated directly into a performant reverse proxy. Basically, if someone can write `python` code and can grok the "SDK" supplied by the base class `ExternalProcessor`, they could contribute to edge functions. Deployment, at least in `kubernetes`, can follow standard practices. 
+
+This won't be an approach as performant as [adding `envoy` filters directly in C++](https://github.com/envoyproxy/envoy-filter-example) (requiring development, testing, and maintenance of the build process), nor will it likely be competitive with [compiled WASM filters](https://www.envoyproxy.io/docs/envoy/latest/start/sandboxes/wasm-cc). However, most web computing domains have to _balance_ accessibility and performance though. Any approach to gateway actions that can reliable cost less than, say O(100ms), probably captures most of the value to most platforms. 
+
 ## Dependencies
 
 * `docker` and `docker compose` (packaged together now)
