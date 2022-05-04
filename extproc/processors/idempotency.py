@@ -1,6 +1,7 @@
 from base64 import b64decode, b64encode
 from datetime import timedelta as td
 from json import dumps
+from logging import getLogger
 from typing import Dict, Union
 
 from envoy.config.core.v3.base_pb2 import (
@@ -17,11 +18,14 @@ from grpc import ServicerContext
 from ..utils.redis import RedisCache
 from .base import BaseExternalProcessorService
 
+logger = getLogger(__name__)
+
 # TODO: make configurable
 IDEMP_CACHE_TIME = td(hours=24)
 IDEMP_SENTINEL_TIME = td(minutes=3)
 
-IDEMP_METHODS = ["post"]
+# envoy/HTTP uppercases method names
+IDEMP_METHODS = ["POST"]
 
 
 class IdempotencyExternalProcessorService(BaseExternalProcessorService):
@@ -44,11 +48,15 @@ class IdempotencyExternalProcessorService(BaseExternalProcessorService):
 
         # use only on certain methods
         if values["method"] not in IDEMP_METHODS:
+            logger.debug(f"skipping idempotency on {values['method']} {values['path']}")
             callctx["cached"] = None  # flag, filter not needed on request
             return self.just_continue_headers()
 
+        logger.debug(f"processing idempotency on {values['method']} {values['path']}")
+
         # default the idempotency key
         if values.get("idemp_key") is None:
+            logger.debug("defaulting key to request's digest")
             values["idemp_key"] = values["digest"]
 
         # respond if cached

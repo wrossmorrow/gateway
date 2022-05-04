@@ -28,7 +28,16 @@ class DigestExternalProcessorService(BaseExternalProcessorService):
         callctx["digest"].update(callctx["tenant"].encode())
         callctx["digest"].update(callctx["method"].encode())
         callctx["digest"].update(callctx["path"].encode())
-        return self.just_continue_headers()
+
+        response = self.just_continue_headers()
+
+        # GETs don't have bodies
+        if callctx["method"].lower() == "get":
+            digest = callctx["digest"].hexdigest()
+            common_response = response.response
+            self.add_header(common_response, "X-Request-Digest", digest)
+
+        return response
 
     def process_request_body(
         self,

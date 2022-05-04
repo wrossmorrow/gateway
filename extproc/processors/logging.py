@@ -1,4 +1,5 @@
 from json import JSONDecodeError, loads
+from logging import getLogger
 from typing import Dict, List, Union
 
 from envoy.service.ext_proc.v3 import external_processor_pb2 as ext_api
@@ -8,6 +9,8 @@ from grpc import ServicerContext
 
 from ..utils.kafka import kafka_config, KAFKA_TOPIC, ProtobufProducer
 from .base import BaseExternalProcessorService
+
+logger = getLogger(__name__)
 
 
 class LoggingExternalProcessorService(BaseExternalProcessorService):
@@ -44,9 +47,9 @@ class LoggingExternalProcessorService(BaseExternalProcessorService):
             elif header.key == "x-request-started":
                 log.record.start_time.FromJsonString(str(header.value))
             elif header.key == "x-request-id":
-                log.identity.request_id = str(header.value)
+                log.record.request_id = str(header.value)
             elif header.key == "x-gateway-tenant":
-                log.identity.brand_id = str(header.value)
+                log.identity.tenant = str(header.value)
             elif header.key == "x-gateway-userid":
                 log.identity.user_id = str(header.value)
             elif header.key == "identity":
@@ -112,7 +115,7 @@ class LoggingExternalProcessorService(BaseExternalProcessorService):
     ) -> Union[ext_api.BodyResponse, ext_api.ImmediateResponse]:
 
         log = callctx["log"]
-        log.response_data.extend(
+        log.response.body.extend(
             encode_body_data(
                 body=body.body,
                 content_type=callctx["content_type"],  # from response_headers phase

@@ -1,0 +1,11 @@
+consumer:
+  bootstrap.servers: kafka:9092
+  enable.auto.commit: true
+  auto.commit.interval.ms: 500
+producer:
+  bootstrap.servers: kafka:9092
+  queue.buffering.max.messages: 5
+  queue.buffering.max.ms: 10
+  batch.num.messages: 10
+  default.topic.config: 
+    acks: all

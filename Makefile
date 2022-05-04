@@ -74,11 +74,11 @@ up-infra: up-kafka up-redis up-postgres
 
 .PHONY: up-targets
 up-targets: 
-	docker compose up -d --build auth echo gateway
+	docker compose up -d --build auth echo consumer gateway
 
 .PHONY: up-extproc
 up-extproc: 
-	docker compose up --build authn_ext_proc
+	docker compose up --build authn_ext_proc logging_ext_proc digest_ext_proc idemp_ext_proc
 
 .PHONY: run
 run: 

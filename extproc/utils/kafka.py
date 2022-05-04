@@ -28,7 +28,7 @@ KAFKA_CONFIG_FILE = environ.get("KAFKA_CONFIG_FILE", "/etc/kafka/config.yaml")
 def kafka_config(config_file: str = KAFKA_CONFIG_FILE) -> Dict:
 
     if exists(config_file):
-        kafka_config = yaml_load(open(config_file, "r"), Loader=SafeLoader)
+        kafka_config = yaml_load(open(config_file, "r"), Loader=SafeLoader)["producer"]
         logger.info(f"Kafka config: {kafka_config}")
 
         # env sub _after_ print because it might be sensitive

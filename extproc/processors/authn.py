@@ -1,6 +1,7 @@
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
 from json import dumps
+from logging import getLogger
 from os import environ
 import re
 from typing import Dict, List, Optional, Tuple, Union
@@ -14,6 +15,8 @@ import jwt
 import requests
 
 from .base import BaseExternalProcessorService
+
+logger = getLogger(__name__)
 
 AUTH_HOST = environ.get("AUTH_HOST", "http://auth")
 AUTH_PORT = int(environ.get("AUTH_PORT", "443"))
@@ -94,8 +97,6 @@ class AuthnExternalProcessorService(BaseExternalProcessorService):
         self.add_header(common_response, "X-Request-Started", started.ToJsonString())
 
         info = extract_header_info(headers.headers.headers)
-
-        print(info)
 
         try:
 
@@ -189,8 +190,6 @@ def verify_basic_auth(identity: str, secret: str) -> str:
     # TODO: probably want retries
     basic = urlsafe_b64encode(f"{identity}:{secret}".encode()).decode()
     headers = {"Authorization": f"Basic {basic}"}
-    print(identity, secret)
-    print(headers)
     response = requests.get(AUTH_URL, headers=headers)
     if response.status_code in [200, 201]:
         return response.json()["token"]
@@ -200,10 +199,23 @@ def verify_basic_auth(identity: str, secret: str) -> str:
 
 
 def verify_token(token: str) -> Dict:
-    return jwt.decode(
-        token,
-        TOKEN_PUBLIC_KEY,
-        algorithms=["HS256"],
-        audience=TOKEN_AUDIENCE,
-        issuer=TOKEN_ISSUER,
-    )
+    try:
+        return jwt.decode(
+            token,
+            TOKEN_PUBLIC_KEY,
+            algorithms=["HS256"],
+            audience=TOKEN_AUDIENCE,
+            issuer=TOKEN_ISSUER,
+        )
+    except (
+        jwt.exceptions.ExpiredSignatureError,
+        jwt.exceptions.InvalidSignatureError,
+        jwt.exceptions.InvalidIssuerError,
+        jwt.exceptions.InvalidAudienceError,
+        jwt.exceptions.InvalidIssuedAtError,
+        jwt.exceptions.ImmatureSignatureError,
+        jwt.exceptions.MissingRequiredClaimError,
+        jwt.exceptions.DecodeError,
+        jwt.exceptions.InvalidTokenError,
+    ) as err:
+        raise Unauthenticated() from err
