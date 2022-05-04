@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package gateway.cache.v1;
+option go_package = "github.com/wrossmorrow/gateway.cache.v1";
+
+import "google/protobuf/timestamp.proto";
+
+// schema for a cached value
+message CachedRequestResponse {
+  string key = 1;
+  string path = 2; // the path called (maybe full URL?)
+  string tenant = 3; // who called, the tenant
+  string identity = 4; // who called, "individual" or service
+  string digest = 5; // possibly the cache key, however always computed
+  google.protobuf.Timestamp when = 6; // when the _first_ call was observed
+  int32 status = 7; // the response status
+  repeated CachedHeader headers = 8; // the response headers
+  string body = 9; // the response body
+}
+
+// schema for a cached header
+message CachedHeader {
+  string key = 1;
+  string value = 2;
+}

@@ -1,0 +1,10 @@
+consumer:
+  security.protocol: "SASL_SSL"
+  sasl.mechanisms: "SCRAM-SHA-512"
+  sasl.username: ${KAFKA_USERNAME}
+  sasl.password: ${KAFKA_PASSWORD}
+  group.id: ${KAFKA_GROUP_ID}
+  client.id: ${KAFKA_CLIENT_ID}
+  auto.offset.reset: "latest"
+  enable.auto.commit: true
+  auto.commit.interval.ms: 1000

@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "gateway_mock_consumer"
+version = "0.1.0"
+description = ""
+authors = ["W. Ross Morrow <morrowwr@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typing-extensions = "^4.2.0"
+flatten-json = "^0.1.13"
+PyYAML = "^6.0"
+confluent-kafka = "^1.8.2"
+ddtrace = "^1.1.0"
+JSON-log-formatter = "^0.5.1"

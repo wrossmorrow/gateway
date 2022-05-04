@@ -1,0 +1,14 @@
+version: v1beta1
+name: buf.build/fpg/gateway  # This refers to the Buf Schema Registry location
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/envoyproxy/protoc-gen-validate
+build:
+  roots:
+    - schemas
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE

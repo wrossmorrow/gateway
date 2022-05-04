@@ -1,0 +1,267 @@
+services:
+
+  # infrastructure (used only by ExternalProcessors)
+
+  postgres:
+    container_name: 'postgres'
+    hostname: 'postgres'
+    image: postgres:13
+    networks:
+      - envoynet
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - DB_ENGINE_TYPE=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: 
+      - postgres
+      - -c
+      - log_statement=all
+
+  redis:
+    container_name: 'redis'
+    hostname: 'redis'
+    image: bitnami/redis:6.2
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    networks:
+      - envoynet
+    ports:
+      - '6379:6379'
+    volumes:
+      - 'redis_data:/bitnami/redis/data'
+
+  zookeeper:
+    hostname: 'zookeeper'
+    container_name: 'zookeeper'
+    image: zookeeper:3.7.0
+    restart: unless-stopped
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_PORT: 2181
+    networks:
+      - envoynet
+    ports:
+      - "2181:2181"
+
+  kafka:
+    hostname: 'kafka'
+    container_name: 'kafka'
+    depends_on:
+      - zookeeper
+    image: confluentinc/cp-kafka:6.0.0
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Auto-create kafka topics locally when pushing messages.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA: "DEBUG"
+    networks:
+      - envoynet
+    ports:
+      - "9092:9092"
+
+  # envoy gateway
+
+  gateway:
+    container_name: gateway
+    # depends_on: 
+    #   - authn_ext_proc
+    #   - digest_ext_proc
+    #   - logging_ext_proc
+    #   - idemp_ext_proc
+    build:
+      context: .
+      dockerfile: Dockerfile.envoy
+    networks:
+      - envoynet
+    volumes:
+      - ./envoy-gateway.yaml:/etc/envoy-gateway.yaml
+    environment:
+      - LOG_LEVEL=info
+    ports:
+      - "8080:8000"
+      - "9901:9901"
+
+  # ExternalProcessor filters
+
+  # filterer1:
+  #   hostname: filterer1
+  #   build:
+  #     context: .
+  #     dockerfile: filterer/Dockerfile
+  #     args:
+  #       - ARTIFACTORY_USER=${ARTIFACTORY_USER}
+  #       - ARTIFACTORY_API_KEY=${ARTIFACTORY_API_KEY}
+  #       - GRPC_PORT=50001
+  #   environment:
+  #     - GRPC_PORT=50001
+  #     - DISABLE_AUTH=true
+  #     - LOG_LEVEL=DEBUG
+  #     - DD_TRACE_ENABLED=false
+  #   networks:
+  #     - envoynet
+  #   ports:
+  #     - "50001:50001"
+
+  # filterer2:
+  #   hostname: filterer2
+  #   build:
+  #     context: .
+  #     dockerfile: filterer/Dockerfile
+  #     args:
+  #       - ARTIFACTORY_USER=${ARTIFACTORY_USER}
+  #       - ARTIFACTORY_API_KEY=${ARTIFACTORY_API_KEY}
+  #       - GRPC_PORT=50101
+  #   environment:
+  #     - GRPC_PORT=50101
+  #     - DISABLE_AUTH=true
+  #     - LOG_LEVEL=DEBUG
+  #     - DD_TRACE_ENABLED=false
+  #   command: ["python","-m","app","run","-s","ConcurrencyTestingService"]
+  #   networks:
+  #     - envoynet
+  #   ports:
+  #     - "50101:50101"
+
+  authn_ext_proc:
+    hostname: authn_ext_proc
+    build:
+      context: .
+      dockerfile: Dockerfile.extproc
+      args:
+        - GRPC_PORT=60001
+    environment:
+      - GRPC_PORT=60001
+      - LOG_LEVEL=DEBUG
+      - DD_TRACE_ENABLED=false
+      - AUTH_HOST=http://auth
+      - AUTH_PORT=7000
+    command: ["python","-m","extproc","run","-s","AuthnExternalProcessorService"]
+    networks:
+      - envoynet
+    ports:
+      - "60001:60001"
+
+  logging_ext_proc:
+    hostname: logging_ext_proc
+    build:
+      context: .
+      dockerfile: Dockerfile.extproc
+      args:
+        - GRPC_PORT=60101
+    environment:
+      - GRPC_PORT=60101
+      - LOG_LEVEL=DEBUG
+      - DD_TRACE_ENABLED=false
+      - KAFKA_CONFIG_FILE=/etc/kafka/kafka-config.yaml
+      - KAFKA_TOPIC=gateway-logging-test
+    command: ["python","-m","extproc","run","-s","LoggingExternalProcessorService"]
+    networks:
+      - envoynet
+    ports:
+      - "60101:60101"
+
+  digest_ext_proc:
+    hostname: digest_ext_proc
+    build:
+      context: .
+      dockerfile: Dockerfile.extproc
+      args:
+        - GRPC_PORT=60201
+    environment:
+      - GRPC_PORT=60201
+      - LOG_LEVEL=DEBUG
+      - DD_TRACE_ENABLED=false
+    command: ["python","-m","extproc","run","-s","DigestExternalProcessorService"]
+    networks:
+      - envoynet
+    ports:
+      - "60201:60201"
+
+  idemp_ext_proc:
+    depends_on:
+      - redis
+    hostname: idemp_ext_proc
+    build:
+      context: .
+      dockerfile: Dockerfile.extproc
+      args:
+        - GRPC_PORT=60301
+    environment:
+      - GRPC_PORT=60301
+      - LOG_LEVEL=DEBUG
+      - DD_TRACE_ENABLED=false
+    command: ["python","-m","extproc","run","-s","IdempotencyExternalProcessorService"]
+    networks:
+      - envoynet
+    ports:
+      - "60301:60301"
+
+  # testing services
+
+  consumer:
+    depends_on:
+      - kafka
+    build:
+      context: .
+      dockerfile: tests/mocks/consumer/Dockerfile
+    environment:
+      - LOG_LEVEL=DEBUG
+      - KAFKA_CONFIG_FILE=/etc/kafka/kafka-config.yaml
+      - KAFKA_TOPIC=gateway-logging-test
+    volumes:
+      - ./tests/mocks/consumer/test-config.yaml:/etc/kafka/kafka-config.yaml
+    networks:
+      - envoynet
+
+  # target services
+
+  auth:
+    build:
+      context: .
+      dockerfile: tests/mocks/auth/Dockerfile
+      args:
+        - APP_PORT=7000
+    environment:
+      - APP_PORT=7000
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASS=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_NAME=postgres
+    networks:
+      - envoynet
+    ports:
+      - "7000:7000"
+      
+  echo:
+    build:
+      context: .
+      dockerfile: tests/mocks/echoserver/Dockerfile
+    environment:
+      - PORT=8000
+    networks:
+      - envoynet
+    ports:
+      - "9000:8000"
+
+  # end services
+
+networks:
+  envoynet: {}
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local

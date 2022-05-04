@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "gateway_mock_auth"
+version = "0.1.0"
+description = ""
+authors = ["W. Ross Morrow <morrowwr@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.75.2"
+psycopg2 = "^2.9.3"
+SQLAlchemy = "^1.4.36"
+PyJWT = "^2.3.0"
+uvicorn = "^0.17.6"

@@ -1,0 +1,306 @@
+static_resources:
+  listeners:
+    - name: listener
+      address:
+        socket_address: {address: 0.0.0.0, port_value: 8000}
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: baas-api-gateway
+                codec_type: AUTO
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: local_service
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: echo
+                        
+                http_filters:
+
+                  # NOTE: watch out for trailers: SEND settings. 
+                  # may result in SEGFAULTs in envoy, if followed by 
+                  # filters. Not fully scoped yet. 
+
+                  # - name: envoy.filters.http.ext_proc
+                  #   typed_config:
+                  #     "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+                  #     grpc_service: 
+                  #       envoy_grpc:
+                  #         cluster_name: filterer1
+                  #     failure_mode_allow: false
+                  #     processing_mode: 
+                  #       request_header_mode: SEND
+                  #       response_header_mode: SEND
+                  #       request_body_mode: BUFFERED
+                  #       response_body_mode: BUFFERED
+                  #       request_trailer_mode: SKIP
+                  #       response_trailer_mode: SKIP
+
+                  # - name: envoy.filters.http.ext_proc
+                  #   typed_config:
+                  #     "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+                  #     grpc_service: 
+                  #       envoy_grpc:
+                  #         cluster_name: filterer2
+                  #     failure_mode_allow: false
+                  #     processing_mode: 
+                  #       request_header_mode: SEND
+                  #       response_header_mode: SEND
+                  #       request_body_mode: BUFFERED
+                  #       response_body_mode: BUFFERED
+                  #       request_trailer_mode: SEND # SEND segfaults envoy v1.20?
+                  #       response_trailer_mode: SEND # SEND segfaults envoy v1.20?
+
+                  # Authn/Basic auth filter:
+                  #   convert identity/auth to a token
+                  #   (can follow with a jwt parsing filter?)
+                  #   whatever auth is used it should append headers for 
+                  #   context data, like X-Bond-BrandId; we can re-parse
+                  #   token cheaply though, and we can base64-encode the 
+                  #   claims and store in a header for downstream filters
+
+                  # Logging filter/middleware (authn'd requests only):
+                  #   on request headers & body store data locally
+                  #   on response headers store data locally
+                  #   on response body pull stored data and log
+
+                  # Request Digest:
+                  #   on request headers store key, brand_id if it exists
+                  #   on request body compute digest of the request
+                  #   set in X-Bond-RequestDigest header
+
+                  # Global Idempotency:
+                  #   on request headers store key, brand_id if it exists
+                  #   on request body compute digest of the request
+
+                  - name: envoy.filters.http.ext_proc
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+                      message_timeout: 
+                        seconds: 5
+                      grpc_service: 
+                        envoy_grpc:
+                          cluster_name: authn_ext_proc
+                        timeout: 
+                          seconds: 5
+                      failure_mode_allow: false
+                      processing_mode: 
+                        request_header_mode: SEND
+                        # response_header_mode: SEND
+                        # request_body_mode: BUFFERED
+                        # response_body_mode: BUFFERED
+                        # request_trailer_mode: SKIP
+                        # response_trailer_mode: SKIP
+
+                  - name: envoy.filters.http.ext_proc
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+                      grpc_service: 
+                        envoy_grpc:
+                          cluster_name: digest_ext_proc
+                      failure_mode_allow: true
+                      processing_mode: 
+                        request_header_mode: SEND
+                        request_body_mode: BUFFERED
+
+                  - name: envoy.filters.http.ext_proc
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+                      grpc_service: 
+                        envoy_grpc:
+                          cluster_name: logging_ext_proc
+                      failure_mode_allow: true
+                      processing_mode: 
+                        request_header_mode: SEND
+                        response_header_mode: SEND
+                        request_body_mode: BUFFERED
+                        response_body_mode: BUFFERED
+                        request_trailer_mode: SKIP
+                        response_trailer_mode: SKIP
+
+                  - name: envoy.filters.http.ext_proc
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+                      grpc_service: 
+                        envoy_grpc:
+                          cluster_name: idemp_ext_proc
+                      failure_mode_allow: true
+                      processing_mode: 
+                        request_header_mode: SEND
+                        response_header_mode: SEND
+                        request_body_mode: BUFFERED
+                        response_body_mode: BUFFERED
+                        request_trailer_mode: SKIP
+                        response_trailer_mode: SKIP
+
+                  - name: envoy.filters.http.grpc_json_transcoder
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_json_transcoder.v3.GrpcJsonTranscoder
+                      proto_descriptor: /baas-api/generated/image.pb
+                      services:
+                      print_options:
+                        add_whitespace: true
+                        always_print_primitive_fields: true
+                        always_print_enums_as_ints: false
+                        preserve_proto_field_names: true
+
+                  - name: envoy.filters.http.router
+                    typed_config: {}
+
+  clusters:
+    
+  - name: listener
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    dns_lookup_family: V4_ONLY
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http2_protocol_options: {}
+    load_assignment:
+      cluster_name: listener
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: localhost
+                    port_value: 8000
+
+  - name: reverb
+    connect_timeout: 0.250s
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http_protocol_options: {}
+    load_assignment:
+      cluster_name: reverb
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: reverb
+                    port_value: 9000
+                hostname: reverb
+    dns_lookup_family: V4_ONLY
+    outlier_detection:
+      success_rate_stdev_factor: 1900
+
+  - name: echo
+    connect_timeout: 0.250s
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http_protocol_options: {}
+    load_assignment:
+      cluster_name: echo
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: echo
+                    port_value: 8000
+                hostname: echo
+    dns_lookup_family: V4_ONLY
+    outlier_detection:
+      success_rate_stdev_factor: 1900
+
+  - name: filterer1
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: filterer1
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: filterer1
+                    port_value: 50001
+  - name: filterer2
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: filterer2
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: filterer2
+                    port_value: 50101
+  - name: authn_ext_proc
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: authn_ext_proc
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: authn_ext_proc
+                    port_value: 60001
+  - name: logging_ext_proc
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: logging_ext_proc
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: logging_ext_proc
+                    port_value: 60101
+  - name: digest_ext_proc
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: digest_ext_proc
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: digest_ext_proc
+                    port_value: 60201
+  - name: idemp_ext_proc
+    type: LOGICAL_DNS
+    lb_policy: LEAST_REQUEST
+    http2_protocol_options: {}
+    load_assignment:
+      cluster_name: idemp_ext_proc
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: idemp_ext_proc
+                    port_value: 60301
+
+admin:
+  address:
+    socket_address: 
+      address: 0.0.0.0
+      port_value: 9901

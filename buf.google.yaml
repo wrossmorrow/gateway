@@ -1,0 +1,47 @@
+version: v1beta1
+build:
+  roots:
+    - .
+  excludes:
+    - gapic
+    - grafeas
+    - google/api/expr
+    - google/api/servicecontrol
+    - google/api/servicemanagement
+    - google/api/serviceusage
+    - google/actions
+    - google/ads
+    - google/analytics
+    - google/appengine
+    - google/apps
+    - google/area120
+    - google/assistant
+    - google/bigtable
+    - google/bytestream
+    - google/chromeos
+    - google/cloud
+    - google/container
+    - google/dataflow
+    - google/datastore
+    - google/devtools
+    - google/example
+    - google/firebase
+    - google/firestore
+    - google/genomics
+    - google/geo
+    - google/home
+    - google/iam
+    - google/identity
+    - google/logging
+    - google/longrunning
+    - google/maps
+    - google/monitoring
+    - google/partner
+    - google/privacy
+    - google/pubsub
+    - google/search
+    - google/spanner
+    - google/storage
+    - google/storagetransfer
+    - google/streetview
+    - google/watcher

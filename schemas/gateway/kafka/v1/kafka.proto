@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package generated.kafka.v1;
+option go_package = "github.com/wrossmorrow/generated.kafka.v1";
+
+import "google/protobuf/any.proto";
+
+import "validate/validate.proto";
+
+// client(producer) to kafka message type
+message KafkaEvent {
+   string topic = 1 [(validate.rules).string = {min_len: 1, ignore_empty: false}];
+   google.protobuf.Any key = 2 [(validate.rules).message.required = true];
+   google.protobuf.Any value = 3 [(validate.rules).message.required = true];
+}
+
+// kafka to client (consumer) message type
+message ConsumedKafkaEvent {
+   string topic = 1;
+   uint64 partition = 2;
+   uint64 offset = 3;
+   KafkaEvent event = 4;
+}
+
+// Key when we don't have to partition intelligently.
+// Implementing code will need to set the value. 
+// Using an int32 with "byte bounds" is meant to limit
+// the scope of keys that might be used for partition
+// assignment. Too many keys might be more difficult
+// for kafka than necessary. And 255 is likely a much
+// larger number than the max concurrent consumers we
+// will use. 
+message RandomPartitionKey {
+   int32 value = 1 [(validate.rules).int32 = {gte: 0, lt: 256}];
+}
+
