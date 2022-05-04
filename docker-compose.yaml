@@ -219,6 +219,7 @@ services:
       dockerfile: tests/mocks/consumer/Dockerfile
     environment:
       - LOG_LEVEL=DEBUG
+      - DD_TRACE_ENABLED=false
       - KAFKA_CONFIG_FILE=/etc/kafka/kafka-config.yaml
       - KAFKA_TOPIC=gateway-logging-test
     volumes:

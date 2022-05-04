@@ -80,6 +80,10 @@ up-targets:
 up-extproc: 
 	docker compose up --build authn_ext_proc logging_ext_proc digest_ext_proc idemp_ext_proc
 
+.PHONY: down
+down: 
+	docker compose down --volumes
+
 .PHONY: run
 run: 
 	PYTHONPATH=generated/python/standardproto/ \

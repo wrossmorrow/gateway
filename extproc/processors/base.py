@@ -11,6 +11,8 @@ from envoy.service.ext_proc.v3.external_processor_pb2_grpc import (
 )
 from grpc import ServicerContext
 
+from ..utils.timing import Timer
+
 logger = getLogger(__name__)
 
 
@@ -43,15 +45,32 @@ class BaseExternalProcessorService(ExternalProcessorServicer):
         headers.
         """
 
-        callctx = {}  # for each stream, define a new "call" context
+        # for each stream, define a new "call" context
+        callctx = {"__overhead_ns": 0}
         for request in request_iterator:
+
             phase_name = request.WhichOneof("request")
             action_name = f"process_{phase_name}"
             action = getattr(self, action_name)
             phase_data = getattr(request, phase_name)
+
+            # look for previous request phase overhead?
+
+            # actually process the request phase
             logger.debug(f"{self.__class__.__name__} started {phase_name}")
-            response = action(phase_data, context, callctx)
-            logger.debug(f"{self.__class__.__name__} finished {phase_name}")
+            T = Timer()
+            with T:
+                response = action(phase_data, context, callctx)
+            duration = T.duration.ToNanoseconds()
+            callctx["__overhead_ns"] += duration
+            logger.debug(
+                f"{self.__class__.__name__} finished {phase_name} ({duration*1e-9} seconds)"
+            )
+
+            # how to store the data in the headers for chaining?
+            # actually, probably write events to kafka
+
+            # yield response for the streaming (push/pull) request
             if isinstance(response, ext_api.ImmediateResponse):
                 yield ext_api.ProcessingResponse(**{"immediate_response": response})
             else:

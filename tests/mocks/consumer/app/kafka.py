@@ -111,7 +111,6 @@ class ProtobufConsumer:
         msg: Message = self._consumer.poll(timeout=timeout)
 
         if msg is None:
-            logger.debug(f"No message consumed after {timeout} seconds")
             return None
 
         if msg.error():
@@ -132,7 +131,7 @@ class ProtobufConsumer:
         key, value = self.config.key_type(), self.config.value_type()
         key.ParseFromString(msg.key())
         value.ParseFromString(msg.value())
-        return self.process(self, key, value)
+        return self.process(key, value)
 
     def process(self, key: ProtoMessage, value: ProtoMessage) -> bool:
         raise NotImplementedError("subclass implementation required")
