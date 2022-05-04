@@ -81,11 +81,11 @@ services:
     #   - idemp_ext_proc
     build:
       context: .
-      dockerfile: Dockerfile.envoy
+      dockerfile: envoy/Dockerfile
     networks:
       - envoynet
     volumes:
-      - ./envoy-gateway.yaml:/etc/envoy-gateway.yaml
+      - ./envoy/envoy-gateway.yaml:/etc/envoy-gateway.yaml
     environment:
       - LOG_LEVEL=info
     ports:
@@ -137,7 +137,7 @@ services:
     hostname: authn_ext_proc
     build:
       context: .
-      dockerfile: Dockerfile.extproc
+      dockerfile: Dockerfile
       args:
         - GRPC_PORT=60001
     environment:
@@ -156,7 +156,7 @@ services:
     hostname: logging_ext_proc
     build:
       context: .
-      dockerfile: Dockerfile.extproc
+      dockerfile: Dockerfile
       args:
         - GRPC_PORT=60101
     environment:
@@ -177,7 +177,7 @@ services:
     hostname: digest_ext_proc
     build:
       context: .
-      dockerfile: Dockerfile.extproc
+      dockerfile: Dockerfile
       args:
         - GRPC_PORT=60201
     environment:
@@ -196,7 +196,7 @@ services:
     hostname: idemp_ext_proc
     build:
       context: .
-      dockerfile: Dockerfile.extproc
+      dockerfile: Dockerfile
       args:
         - GRPC_PORT=60301
     environment:
